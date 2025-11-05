@@ -1,0 +1,52 @@
+name: Build APK (Solar2D)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: Install Solar2D
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget
+          # Télécharger Solar2D pour Linux (dernière version stable)
+          wget https://github.com/coronalabs/corona/releases/download/3706/Solar2D-Linux-3706.tar.gz
+          tar -xzf Solar2D-Linux-3706.tar.gz
+          
+      - name: Prepare build environment
+        run: |
+          mkdir -p build/apk
+          
+      - name: Build Android APK
+        run: |
+          cd Solar2D
+          # Adapter le chemin vers votre projet (la racine contient main.lua et build.settings)
+          ./solar2d simulate ../main.lua -platform android -output ../build/apk
+        continue-on-error: true
+
+      - name: List build output
+        run: |
+          ls -la build/apk/
+          find . -name "*.apk"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ccode-apk
+          path: |
+            build/apk/*.apk
+            **/*.apk
