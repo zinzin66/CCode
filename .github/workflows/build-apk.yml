@@ -1,1 +1,29 @@
+name: Build APK (Solar2D)
 
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Solar2D CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip curl
+          curl -L -o solar2d.zip https://github.com/coronalabs/solar2d/releases/latest/download/solar2d-cli-linux.zip
+          unzip solar2d.zip -d solar2d
+          chmod +x solar2d/solar2d
+
+      - name: Build Android APK (unsigned)
+        run: |
+          ./solar2d/solar2d build --platform android --output ./build/apk --appVersion 1.0 --package com.example.app
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: solar2d-apk
+          path: build/apk/*.apk
