@@ -18,35 +18,69 @@ jobs:
           distribution: 'temurin'
           java-version: '11'
 
-      - name: Install Solar2D
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget
-          # Télécharger Solar2D pour Linux (dernière version stable)
-          wget https://github.com/coronalabs/corona/releases/download/3706/Solar2D-Linux-3706.tar.gz
-          tar -xzf Solar2D-Linux-3706.tar.gz
-          
-      - name: Prepare build environment
+          sudo apt-get install -y wget unzip libssl-dev libglu1-mesa-dev
+
+      - name: Download Solar2D
+        run: |
+          # Télécharger la dernière version stable de Solar2D
+          wget -O solar2d.tar.gz https://github.com/coronalabs/corona/releases/download/2024.3706/Solar2D-Linux-2024.3706.tar.gz || \
+          wget -O solar2d.tar.gz https://github.com/coronalabs/corona/releases/download/3698/Solar2D-Linux-3698.tar.gz
+          tar -xzf solar2d.tar.gz
+          ls -la
+
+      - name: Verify Solar2D installation
+        run: |
+          find . -name "solar2d*" -o -name "Corona*"
+          ls -la
+
+      - name: Check project structure
+        run: |
+          ls -la
+          cat build.settings || echo "No build.settings found"
+
+      - name: Prepare build directory
         run: |
           mkdir -p build/apk
-          
-      - name: Build Android APK
+
+      - name: Build APK (attempt)
         run: |
-          cd Solar2D
-          # Adapter le chemin vers votre projet (la racine contient main.lua et build.settings)
-          ./solar2d simulate ../main.lua -platform android -output ../build/apk
+          # Trouver l'exécutable Solar2D
+          SOLAR2D=$(find . -name "solar2d" -o -name "Corona" | head -1)
+          if [ -n "$SOLAR2D" ]; then
+            chmod +x "$SOLAR2D"
+            "$SOLAR2D" compile --platform android --output build/apk
+          else
+            echo "Solar2D executable not found"
+            echo "This project might need to be built locally with Solar2D Desktop"
+          fi
         continue-on-error: true
 
-      - name: List build output
+      - name: List all files
         run: |
-          ls -la build/apk/
-          find . -name "*.apk"
+          echo "=== Root directory ==="
+          ls -la
+          echo "=== Build directory ==="
+          ls -la build/apk/ || echo "No build/apk directory"
+          echo "=== Find APK files ==="
+          find . -name "*.apk" || echo "No APK files found"
 
-      - name: Upload APK artifact
+      - name: Upload build logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-logs
+          path: |
+            **/*.log
+            build/
+
+      - name: Upload APK if found
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ccode-apk
           path: |
-            build/apk/*.apk
             **/*.apk
+            build/apk/.
