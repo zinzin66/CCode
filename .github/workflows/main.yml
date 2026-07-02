@@ -1,4 +1,4 @@
-name: Build APK (Solar2D)
+name: Explore CCode Project
 
 on:
   workflow_dispatch:
@@ -8,84 +8,59 @@ on:
       - main
 
 jobs:
-  build:
+  explore:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Install dependencies
+      - name: System information
         run: |
-          sudo apt-get update
-          sudo apt-get install -y wget unzip libssl-dev libglu1-mesa-dev
+          echo "===== SYSTEM ====="
+          uname -a
+          pwd
 
-      - name: Download Solar2D
-        continue-on-error: true
+      - name: Repository tree
         run: |
-          wget -O solar2d.tar.gz https://github.com/coronalabs/corona/releases/download/2024.3706/Solar2D-Linux-2024.3706.tar.gz || true
+          echo "===== FILE TREE ====="
+          find . | sort
 
-          if [ -f solar2d.tar.gz ]; then
-            tar -xzf solar2d.tar.gz
-          fi
-
-      - name: Verify Solar2D installation
+      - name: Search important files
         run: |
-          echo "=== Solar2D executables ==="
-          find . -iname "*solar2d*" || true
-          find . -iname "*Corona*" || true
+          echo "===== IMPORTANT FILES ====="
+          find . \( \
+            -name "*.lua" -o \
+            -name "*.gradle" -o \
+            -name "*.sh" -o \
+            -name "*.mk" -o \
+            -name "*.yml" -o \
+            -name "*.xml" -o \
+            -name "build.settings" -o \
+            -name "AndroidManifest.xml" -o \
+            -name "config.lua" -o \
+            -name "main.lua" \
+          \)
 
-      - name: Check project structure
+      - name: Search executables
         run: |
-          echo "=== Root ==="
-          ls -la
-          echo "=== Lua files ==="
-          find . -name "*.lua" | head -100
-          echo "=== build.settings ==="
-          cat build.settings || echo "No build.settings"
+          echo "===== EXECUTABLES ====="
+          find . -type f -executable
 
-      - name: Prepare build directory
-        run: mkdir -p build/apk
-
-      - name: Build APK (attempt)
-        continue-on-error: true
+      - name: Search Gradle wrapper
         run: |
-          SOLAR=$(find . -type f \( -iname "solar2d" -o -iname "Corona" \) | head -1)
+          echo "===== GRADLE ====="
+          find . -name "gradlew"
 
-          echo "Executable trouvé : $SOLAR"
-
-          if [ -n "$SOLAR" ]; then
-            chmod +x "$SOLAR"
-            "$SOLAR" compile --platform android --output build/apk
-          else
-            echo "Aucun exécutable Solar2D trouvé."
-          fi
-
-      - name: List generated files
+      - name: Search Android projects
         run: |
-          echo "=== APK ==="
-          find . -name "*.apk" || true
-          echo "=== Build ==="
-          find build || true
+          echo "===== ANDROID ====="
+          find . -name "build.gradle"
+          find . -name "settings.gradle"
+          find . -name "*.apk"
 
-      - name: Upload logs
-        if: always()
+      - name: Upload project listing
         uses: actions/upload-artifact@v4
         with:
-          name: build-files
-          path: build
-
-      - name: Upload APK
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: apk
-          path: |
-            **/*.apk
-            build/apk
+          name: project-tree
+          path: .
