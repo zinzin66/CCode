@@ -3,20 +3,23 @@ name: Build APK (Solar2D)
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches:
+      - master
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '11'
+          distribution: temurin
+          java-version: '17'
 
       - name: Install dependencies
         run: |
@@ -24,63 +27,65 @@ jobs:
           sudo apt-get install -y wget unzip libssl-dev libglu1-mesa-dev
 
       - name: Download Solar2D
+        continue-on-error: true
         run: |
-          # Télécharger la dernière version stable de Solar2D
-          wget -O solar2d.tar.gz https://github.com/coronalabs/corona/releases/download/2024.3706/Solar2D-Linux-2024.3706.tar.gz || \
-          wget -O solar2d.tar.gz https://github.com/coronalabs/corona/releases/download/3698/Solar2D-Linux-3698.tar.gz
-          tar -xzf solar2d.tar.gz
-          ls -la
+          wget -O solar2d.tar.gz https://github.com/coronalabs/corona/releases/download/2024.3706/Solar2D-Linux-2024.3706.tar.gz || true
+
+          if [ -f solar2d.tar.gz ]; then
+            tar -xzf solar2d.tar.gz
+          fi
 
       - name: Verify Solar2D installation
         run: |
-          find . -name "solar2d*" -o -name "Corona*"
-          ls -la
+          echo "=== Solar2D executables ==="
+          find . -iname "*solar2d*" || true
+          find . -iname "*Corona*" || true
 
       - name: Check project structure
         run: |
+          echo "=== Root ==="
           ls -la
-          cat build.settings || echo "No build.settings found"
+          echo "=== Lua files ==="
+          find . -name "*.lua" | head -100
+          echo "=== build.settings ==="
+          cat build.settings || echo "No build.settings"
 
       - name: Prepare build directory
-        run: |
-          mkdir -p build/apk
+        run: mkdir -p build/apk
 
       - name: Build APK (attempt)
-        run: |
-          # Trouver l'exécutable Solar2D
-          SOLAR2D=$(find . -name "solar2d" -o -name "Corona" | head -1)
-          if [ -n "$SOLAR2D" ]; then
-            chmod +x "$SOLAR2D"
-            "$SOLAR2D" compile --platform android --output build/apk
-          else
-            echo "Solar2D executable not found"
-            echo "This project might need to be built locally with Solar2D Desktop"
-          fi
         continue-on-error: true
-
-      - name: List all files
         run: |
-          echo "=== Root directory ==="
-          ls -la
-          echo "=== Build directory ==="
-          ls -la build/apk/ || echo "No build/apk directory"
-          echo "=== Find APK files ==="
-          find . -name "*.apk" || echo "No APK files found"
+          SOLAR=$(find . -type f \( -iname "solar2d" -o -iname "Corona" \) | head -1)
 
-      - name: Upload build logs
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: build-logs
-          path: |
-            **/*.log
-            build/
+          echo "Executable trouvé : $SOLAR"
 
-      - name: Upload APK if found
-        uses: actions/upload-artifact@v4
+          if [ -n "$SOLAR" ]; then
+            chmod +x "$SOLAR"
+            "$SOLAR" compile --platform android --output build/apk
+          else
+            echo "Aucun exécutable Solar2D trouvé."
+          fi
+
+      - name: List generated files
+        run: |
+          echo "=== APK ==="
+          find . -name "*.apk" || true
+          echo "=== Build ==="
+          find build || true
+
+      - name: Upload logs
         if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: ccode-apk
+          name: build-files
+          path: build
+
+      - name: Upload APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk
           path: |
             **/*.apk
-            build/apk/.
+            build/apk
